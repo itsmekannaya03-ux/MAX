@@ -1,9 +1,8 @@
 @echo off
-setlocal enabledelayedexpansion
 title MAX - My AI eXecutive Assistant
 color 0b
 
-:: Ensure current working directory is the folder where this batch script lives
+REM Set working directory to the folder containing this script
 cd /d "%~dp0"
 
 echo ======================================================================
@@ -11,67 +10,73 @@ echo              MAX - My AI eXecutive Assistant
 echo ======================================================================
 echo.
 
-:: 1. Check Python installation
+REM 1. Check Python installation
 set "PY_CMD="
-where python >nul 2>&1
-if %errorlevel% equ 0 (
+python -c "import sys" >nul 2>&1
+if not errorlevel 1 (
     set "PY_CMD=python"
 ) else (
-    where py >nul 2>&1
-    if %errorlevel% equ 0 (
+    py -c "import sys" >nul 2>&1
+    if not errorlevel 1 (
         set "PY_CMD=py"
     )
 )
 
 if "%PY_CMD%"=="" (
     color 0c
-    echo [ERROR] Python was not found on this computer!
+    echo [ERROR] Python was not found on this computer.
     echo.
-    echo Please install Python 3.10+ from:
+    echo Please install Python 3.10 or newer from:
     echo   https://www.python.org/downloads/
     echo.
-    echo IMPORTANT: Make sure to check the box "Add python.exe to PATH" during installation.
+    echo IMPORTANT: Make sure to check "Add python.exe to PATH" during installation.
     echo.
     pause
     exit /b 1
 )
 
-:: 2. Ensure .env exists
+echo [MAX] Found Python: %PY_CMD%
+
+REM 2. Ensure .env exists
 if not exist ".env" (
     if exist ".env.example" (
-        echo [MAX] Setting up default configuration (.env)...
+        echo [MAX] Creating initial .env configuration file...
         copy ".env.example" ".env" >nul
     )
 )
 
-:: 3. Setup Virtual Environment if not present
+REM 3. Create virtual environment if missing
 if not exist ".venv\Scripts\python.exe" (
-    echo [MAX] First-time setup detected. Creating virtual environment (.venv)...
+    echo [MAX] First-time setup: Creating virtual environment...
     %PY_CMD% -m venv .venv
-    if not exist ".venv\Scripts\python.exe" (
-        color 0c
-        echo.
-        echo [ERROR] Could not create virtual environment (.venv).
-        echo Please ensure Python is properly installed with venv module.
-        echo.
-        pause
-        exit /b 1
-    )
-    echo [MAX] Installing dependencies (this only happens once)...
-    .\.venv\Scripts\python.exe -m pip install --upgrade pip >nul 2>&1
+)
+
+if not exist ".venv\Scripts\python.exe" (
+    color 0c
+    echo.
+    echo [ERROR] Failed to create virtual environment in .venv.
+    echo Please verify Python is installed with the venv module.
+    echo.
+    pause
+    exit /b 1
+)
+
+REM 4. Install backend dependencies if needed
+if not exist ".venv\installed.flag" (
+    echo [MAX] Installing backend packages. This only takes a moment on first launch...
+    .\.venv\Scripts\python.exe -m pip install --upgrade pip
     .\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-    if %errorlevel% neq 0 (
-        echo.
-        echo [WARNING] Some dependencies had warnings during installation. Continuing...
+    if not errorlevel 1 (
+        echo installed > ".venv\installed.flag"
     )
 )
 
-:: 4. Launch Desktop Application using verified healthcheck launcher
-echo [MAX] Initializing MAX Desktop Assistant...
+REM 5. Launch MAX Desktop Assistant
+echo [MAX] Launching MAX Executive Assistant...
 .\.venv\Scripts\python.exe launch_desktop.py
 
-if %errorlevel% neq 0 (
+if errorlevel 1 (
     echo.
-    echo [MAX] Application exited with code %errorlevel%.
+    echo [MAX] Application finished or stopped.
     pause
 )
